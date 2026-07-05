@@ -1,5 +1,7 @@
 # Wifite 3 — High-Performance Wireless Network Auditor
 
+🌎 **[English](README.md) | [Español](README.es.md)**
+
 Wifite 3 is a complete, modernized redesign of the original wireless network auditor, rebuilt for modern security professionals, penetration testers, and red-teams. 
 
 This major upgrade (Wifite 3) is developed and maintained by **KanonDCS**.
@@ -57,7 +59,7 @@ A wireless network adapter that supports **Monitor Mode** and **Packet Injection
 
 ### 1. Clone the repository:
 ```bash
-git clone https://github.com/KanonDCS/wifite3.git
+git clone https://github.com/KanonDCS/Wifite3.git
 cd wifite3
 ```
 
