@@ -68,7 +68,6 @@ class CrackResult(object):
 
     @classmethod
     def display(cls):
-        ''' Show cracked targets from cracked file '''
         name = cls.cracked_file
         if not os.path.exists(name):
             Color.pl('{!} {O}file {C}%s{O} not found{W}' % name)
@@ -85,25 +84,60 @@ class CrackResult(object):
             len(cracked_targets), name))
 
         results = sorted([cls.load(item) for item in cracked_targets], key=lambda x: x.date, reverse=True)
-        longest_essid = max([len(result.essid or 'ESSID') for result in results])
 
-        # Header
-        Color.p('{D} ')
-        Color.p('ESSID'.ljust(longest_essid))
-        Color.p('  ')
-        Color.p('BSSID'.ljust(17))
-        Color.p('  ')
-        Color.p('DATE'.ljust(19))
-        Color.p('  ')
-        Color.p('TYPE'.ljust(5))
-        Color.p('  ')
-        Color.p('KEY')
-        Color.pl('{D}')
-        Color.p(' ' + '-' * (longest_essid + 17 + 19 + 5 + 11 + 12))
-        Color.pl('{W}')
-        # Results
-        for result in results:
-            result.print_single_line(longest_essid)
+        rows_data = []
+        for r in results:
+            essid = r.essid if r.essid else 'N/A'
+            bssid = r.bssid
+            date_str = r.readable_date
+            rtype = r.result_type
+            if rtype == 'WPA' or rtype == 'PMKID':
+                key = r.key
+            elif rtype == 'WEP':
+                key = r.ascii_key if r.ascii_key else r.hex_key
+            elif rtype == 'WPS':
+                key = 'PIN: %s PSK: %s' % (r.pin, r.psk) if r.psk else 'PIN: %s' % r.pin
+            else:
+                key = 'Unknown'
+            rows_data.append((essid, bssid, date_str, rtype, key))
+
+        longest_key = max(len(row[4]) for row in rows_data) if rows_data else 3
+        longest_key = max(longest_key, 3)
+
+        widths = [24, 17, 19, 5, longest_key]
+
+        top_border = '┌' + '┬'.join('─' * (w + 2) for w in widths) + '┐'
+        mid_border = '├' + '┼'.join('─' * (w + 2) for w in widths) + '┤'
+        bot_border = '└' + '┴'.join('─' * (w + 2) for w in widths) + '┘'
+
+        headers = [
+            'ESSID'.ljust(24),
+            'BSSID'.ljust(17),
+            'DATE'.ljust(19),
+            'TYPE'.ljust(5),
+            'KEY'.ljust(longest_key)
+        ]
+
+        Color.pl('   ' + top_border)
+        Color.pl('   │ ' + ' │ '.join(headers) + ' │')
+        Color.pl('   ' + mid_border)
+
+        for essid, bssid, date_str, rtype, key in rows_data:
+            if len(essid) > 24:
+                essid_text = essid[:21] + '...'
+            else:
+                essid_text = essid.ljust(24)
+
+            essid_val = '{C}%s{W}' % essid_text
+            bssid_val = '{O}%s{W}' % bssid.ljust(17)
+            date_val = '{GR}%s{W}' % date_str.ljust(19)
+            type_val = '{G}%s{W}' % rtype.ljust(5)
+            key_val = '{G}%s{W}' % key.ljust(longest_key)
+
+            row_cells = [essid_val, bssid_val, date_val, type_val, key_val]
+            Color.pl('   │ ' + ' │ '.join(row_cells) + ' │')
+
+        Color.pl('   ' + bot_border)
         Color.pl('')
 
 
