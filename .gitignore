@@ -1,0 +1,16 @@
+*.swp
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+hs/
+cracked.txt
+MANIFEST
+dist/
+build/
+*.egg-info/
+wifite_report.*
+.idea/
+.vscode/
+.DS_Store
+files.txt
