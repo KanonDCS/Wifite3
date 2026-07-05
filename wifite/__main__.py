@@ -58,9 +58,9 @@ class Wifite(object):
         Color.pl(r' {G}  .     {GR}{D}     {W}{G}     .    {W}')
         Color.pl(r' {G}.´  ·  .{GR}{D}     {W}{G}.  ·  `.  {G}{BD}wifite {D}3.0.0{W}')
         Color.pl(r' {G}:  :  : {GR}{D} (¯) {W}{G} :  :  :  {W}{D}automated wireless auditor{W}')
-        Color.pl(r' {G}`.  ·  `{GR}{D} /¯\ {W}{G}´  ·  .´  {C}{D}by KanonDCS (kanondcs@proton.me){W}')
+        Color.pl(r' {G}`.  ·  `{GR}{D} /¯\ {W}{G}´  ·  .´  {C}{D}https://github.com/KanonDCS/Wifite3{W}')
         Color.pl(r' {G}  `     {GR}{D}/¯¯¯\{W}{G}     ´    {W}')
-        Color.pl(r'          {O}{BD}Wifite 3: High-Performance Wireless Auditor{W}')
+        Color.pl(r'          {O}{BD}Wifite 3 by KanonDCS (kanondcs@proton.me){W}')
         Color.pl('')
 
 
