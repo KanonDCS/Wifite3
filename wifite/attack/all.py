@@ -105,7 +105,12 @@ class AttackAll(object):
                 if result:
                     break
             except Exception as e:
-                Color.pexception(e)
+                err_msg = str(e)
+                Color.pl('{!} {R}Attack failed:{O} %s{W}' % err_msg)
+                # Dynamic fallback: if WPS attack is locked, clear other WPS attacks and fallback to PMKID/WPA
+                if 'Locked' in err_msg or 'rate limiting' in err_msg:
+                    Color.pl('{!} {O}WPS is locked on target — skipping remaining WPS attacks, switching to offline vectors...{W}')
+                    attacks = [a for a in attacks if not hasattr(a, 'pixie_dust')]
                 continue
             except KeyboardInterrupt:
                 Color.pl('\n{!} {O}Interrupted{W}\n')
