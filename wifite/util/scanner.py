@@ -275,9 +275,10 @@ class Scanner(object):
 
         # Return all targets if user specified a wait time ('pillage').
         if Configuration.scan_time > 0:
-            return self.targets
+            return sort_targets(self.targets)
 
         # Ask user for targets.
+        ranked = sort_targets(self.targets)
         self.print_targets()
         Color.clear_entire_line()
 
@@ -285,7 +286,7 @@ class Scanner(object):
             Color.pl(self.err_msg)
 
         input_str  = '{+} select target(s)'
-        input_str += ' ({G}1-%d{W})' % len(self.targets)
+        input_str += ' ({G}1-%d{W})' % len(ranked)
         input_str += ' separated by commas, dashes'
         input_str += ' or {G}all{W}: '
 
@@ -294,16 +295,16 @@ class Scanner(object):
         for choice in raw_input(Color.s(input_str)).split(','):
             choice = choice.strip()
             if choice.lower() == 'all':
-                chosen_targets = self.targets
+                chosen_targets = ranked
                 break
             if '-' in choice:
-                # User selected a range
                 (lower,upper) = [int(x) - 1 for x in choice.split('-')]
-                for i in xrange(lower, min(len(self.targets), upper + 1)):
-                    chosen_targets.append(self.targets[i])
+                for i in xrange(lower, min(len(ranked), upper + 1)):
+                    chosen_targets.append(ranked[i])
             elif choice.isdigit():
                 choice = int(choice) - 1
-                chosen_targets.append(self.targets[choice])
+                if 0 <= choice < len(ranked):
+                    chosen_targets.append(ranked[choice])
 
         return chosen_targets
 
