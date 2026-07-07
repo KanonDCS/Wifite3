@@ -69,6 +69,21 @@ class AttackWPA(Attack):
             self.success = False
             return False
 
+        # Support compressed wordlist (.gz)
+        if wordlist.endswith('.gz') and os.path.exists(wordlist):
+            import gzip
+            decompressed_wl = Configuration.temp('wordlist.txt')
+            try:
+                Color.pl('{+} {C}Decompressing compressed wordlist {G}%s{W}...' % os.path.basename(wordlist))
+                with gzip.open(wordlist, 'rb') as f_in:
+                    with open(decompressed_wl, 'wb') as f_out:
+                        f_out.write(f_in.read())
+                wordlist = decompressed_wl
+            except Exception as e:
+                Color.pl('{!} {R}Failed to decompress wordlist: {O}%s{W}' % str(e))
+                self.success = False
+                return False
+
         if not os.path.exists(wordlist):
             Color.pl('{!} {O}Wordlist not found: {R}%s{W}' % wordlist)
             self.success = False

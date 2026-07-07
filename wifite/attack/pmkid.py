@@ -183,9 +183,24 @@ class AttackPMKID(Attack):
                     'because there is no {R}wordlist{O} (re-run with {C}--dict{O})')
             key = None
         else:
+            wordlist = Configuration.wordlist
+            if wordlist.endswith('.gz') and os.path.exists(wordlist):
+                import gzip
+                decompressed_wl = Configuration.temp('wordlist.txt')
+                try:
+                    Color.pl('{+} {C}Decompressing compressed wordlist {G}%s{W}...' % os.path.basename(wordlist))
+                    with gzip.open(wordlist, 'rb') as f_in:
+                        with open(decompressed_wl, 'wb') as f_out:
+                            f_out.write(f_in.read())
+                    # Overwrite temp wordlist path for the session
+                    Configuration.wordlist = decompressed_wl
+                    wordlist = decompressed_wl
+                except Exception as e:
+                    Color.pl('{!} {R}Failed to decompress wordlist: {O}%s{W}' % str(e))
+                    return False
             Color.clear_entire_line()
             Color.pattack('PMKID', self.target, 'CRACK',
-                    'Cracking PMKID using {C}%s{W} ...\n' % Configuration.wordlist)
+                    'Cracking PMKID using {C}%s{W} ...\n' % wordlist)
             key = Hashcat.crack_pmkid(pmkid_file)
 
         if key is None:

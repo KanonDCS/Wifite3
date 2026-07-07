@@ -96,10 +96,11 @@ class Configuration(object):
         cls.cracked_file = 'cracked.txt'
         cls.wordlist = None
         wordlists = [
-            './wordlist-top4800-probable.txt',  # Local file (ran from cloned repo)
-            '/usr/share/dict/wordlist-top4800-probable.txt',  # setup.py with prefix=/usr
-            '/usr/local/share/dict/wordlist-top4800-probable.txt',  # setup.py with prefix=/usr/local
-            # Other passwords found on Kali
+            './wordlist-top4800-probable.txt',
+            '/usr/share/wordlists/rockyou.txt',
+            '/usr/share/wordlists/rockyou.txt.gz',
+            '/usr/share/dict/wordlist-top4800-probable.txt',
+            '/usr/local/share/dict/wordlist-top4800-probable.txt',
             '/usr/share/wfuzz/wordlist/fuzzdb/wordlists-user-passwd/passwds/phpbb.txt',
             '/usr/share/fuzzdb/wordlists-user-passwd/passwds/phpbb.txt',
             '/usr/share/wordlists/fern-wifi/common.txt'
