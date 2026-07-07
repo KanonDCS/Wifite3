@@ -55,7 +55,7 @@ def score(target):
     if wpa3:
         pts -= 20
 
-    clients = int(target.clients) if hasattr(target, 'clients') and target.clients else 0
+    clients = len(target.clients) if hasattr(target, 'clients') and isinstance(target.clients, list) else 0
     if clients > 0:
         pts += min(clients * 5, 20)
 
