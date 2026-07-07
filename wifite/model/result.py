@@ -6,6 +6,7 @@ from ..config import Configuration
 
 import os
 import time
+import fcntl
 from json import loads, dumps
 
 class CrackResult(object):
@@ -38,33 +39,33 @@ class CrackResult(object):
         Color.p('  ')
 
     def save(self):
-        ''' Adds this crack result to the cracked file and saves it. '''
         name = CrackResult.cracked_file
-        saved_results = []
-        if os.path.exists(name):
-            with open(name, 'r') as fid:
+        old_mask = os.umask(0o177)
+        try:
+            with open(name, 'a+') as fid:
+                fcntl.flock(fid, fcntl.LOCK_EX)
+                fid.seek(0)
                 text = fid.read()
-            try:
-                saved_results = loads(text)
-            except Exception as e:
-                Color.pl('{!} error while loading %s: %s' % (name, str(e)))
-
-        # Check for duplicates
-        this_dict = self.to_dict()
-        this_dict.pop('date')
-        for entry in saved_results:
-            this_dict['date'] = entry.get('date')
-            if entry == this_dict:
-                # Skip if we already saved this BSSID+ESSID+TYPE+KEY
-                Color.pl('{+} {C}%s{O} already exists in {G}%s{O}, skipping.' % (
-                    self.essid, Configuration.cracked_file))
-                return
-
-        saved_results.append(self.to_dict())
-        with open(name, 'w') as fid:
-            fid.write(dumps(saved_results, indent=2))
-        Color.pl('{+} saved crack result to {C}%s{W} ({G}%d total{W})'
-            % (name, len(saved_results)))
+                saved_results = loads(text) if text.strip() else []
+                this_dict = self.to_dict()
+                check = {k: v for k, v in this_dict.items() if k != 'date'}
+                for entry in saved_results:
+                    entry_check = {k: v for k, v in entry.items() if k != 'date'}
+                    if entry_check == check:
+                        Color.pl('{+} {C}%s{O} already exists in {G}%s{O}, skipping.' % (
+                            self.essid, name))
+                        return
+                saved_results.append(this_dict)
+                fid.seek(0)
+                fid.truncate()
+                fid.write(dumps(saved_results, indent=2))
+                fid.flush()
+                os.fsync(fid.fileno())
+        except Exception as e:
+            Color.pl('{!} {R}Error saving crack result:{O} %s{W}' % str(e))
+        finally:
+            os.umask(old_mask)
+        Color.pl('{+} Saved crack result to {C}%s{W}' % name)
 
     @classmethod
     def display(cls):

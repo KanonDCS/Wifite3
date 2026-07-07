@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 import os
+import re
 
 from .util.color import Color
 from .tools.macchanger import Macchanger
@@ -424,7 +422,12 @@ class Configuration(object):
             Color.pl('{+} {C}option:{W} will generate {G}%s{W} report after session' % args.report_format)
 
         if hasattr(args, 'report_path') and args.report_path:
-            cls.report_path = args.report_path
+            rp = os.path.abspath(args.report_path)
+            cwd = os.path.abspath('.')
+            if not rp.startswith(cwd):
+                Color.pl('{!} {R}Security:{O} --report-path must be within the current directory{W}')
+                raise SystemExit(1)
+            cls.report_path = rp
 
     @classmethod
     def parse_encryption(cls):
@@ -476,16 +479,18 @@ class Configuration(object):
 
     @classmethod
     def temp(cls, subfile=''):
-        ''' Creates and/or returns the temporary directory '''
         if cls.temp_dir is None:
             cls.temp_dir = cls.create_temp()
-        return cls.temp_dir + subfile
+        if subfile:
+            safe = re.sub(r'[^a-zA-Z0-9_\-.]', '_', os.path.basename(subfile))
+            return os.path.join(cls.temp_dir, safe)
+        return cls.temp_dir
 
     @staticmethod
     def create_temp():
-        ''' Creates and returns a temporary directory '''
         from tempfile import mkdtemp
         tmp = mkdtemp(prefix='wifite')
+        os.chmod(tmp, 0o700)
         if not tmp.endswith(os.sep):
             tmp += os.sep
         return tmp

@@ -32,8 +32,7 @@ class AttackPMKID(Attack):
         super(AttackPMKID, self).__init__(target)
         self.crack_result = None
         self.success = False
-        # V3: Use BSSID-specific filename to avoid collisions in multi-target runs
-        bssid_safe = target.bssid.replace(':', '')
+        bssid_safe = re.sub(r'[^0-9a-fA-F]', '', target.bssid)
         self.pcapng_file = Configuration.temp('pmkid_%s.pcapng' % bssid_safe)
 
 
@@ -216,21 +215,23 @@ class AttackPMKID(Attack):
 
 
     def save_pmkid(self, pmkid_hash):
-        '''Saves a copy of the PMKID hash to hs/ directory.
-        V3: Uses .hc22000 extension (was .16800).'''
         if not os.path.exists(Configuration.wpa_handshake_dir):
             os.makedirs(Configuration.wpa_handshake_dir)
 
-        essid_safe = re.sub('[^a-zA-Z0-9]', '', self.target.essid or 'Unknown')
-        bssid_safe = self.target.bssid.replace(':', '-')
+        essid_safe = re.sub(r'[^a-zA-Z0-9]', '', self.target.essid or 'Unknown')
+        bssid_safe = re.sub(r'[^0-9a-fA-F]', '', self.target.bssid)
+        pmkid_hash_clean = re.sub(r'[^0-9a-fA-F:\*]', '', pmkid_hash.strip())
         date = time.strftime('%Y-%m-%dT%H-%M-%S')
-        # V3: .hc22000 extension
         pmkid_file = 'pmkid_%s_%s_%s.hc22000' % (essid_safe, bssid_safe, date)
         pmkid_file = os.path.join(Configuration.wpa_handshake_dir, pmkid_file)
 
         Color.p('\n{+} Saving copy of {C}PMKID Hash{W} to {C}%s{W} ' % pmkid_file)
-        with open(pmkid_file, 'w') as pmkid_handle:
-            pmkid_handle.write(pmkid_hash)
-            pmkid_handle.write('\n')
+        old_mask = os.umask(0o177)
+        try:
+            with open(pmkid_file, 'w') as pmkid_handle:
+                pmkid_handle.write(pmkid_hash_clean)
+                pmkid_handle.write('\n')
+        finally:
+            os.umask(old_mask)
 
         return pmkid_file
