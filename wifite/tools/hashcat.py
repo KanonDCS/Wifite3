@@ -28,8 +28,22 @@ class Hashcat(Dependency):
     def should_use_force():
         """Returns True if hashcat needs --force flag (no GPU detected)."""
         command = ['hashcat', '-I']
-        stderr = Process(command).stderr()
-        return 'No devices found/left' in stderr
+        stdout, stderr = Process(command).get_output()
+        output = stdout + stderr
+        return 'No devices found/left' in output
+
+    @staticmethod
+    def get_optimum_workload():
+        """
+        Parses device query output to determine if openCL/CUDA acceleration is present.
+        Returns workload profile arguments like ['-w', '3'] if GPU exists, else empty list.
+        """
+        command = ['hashcat', '-I']
+        stdout, stderr = Process(command).get_output()
+        output = stdout + stderr
+        if any(dev in output.lower() for dev in ('cuda', 'opencl', 'nvidia', 'amd', 'radeon', 'intel(r)')):
+            return ['-w', '3']
+        return []
 
     @staticmethod
     def crack_handshake(handshake, show_command=False):
@@ -59,6 +73,7 @@ class Hashcat(Dependency):
                 hc22000_file,
                 Configuration.wordlist
             ]
+            command.extend(Hashcat.get_optimum_workload())
             if Hashcat.should_use_force():
                 command.append('--force')
             command.extend(additional_arg)
@@ -98,6 +113,7 @@ class Hashcat(Dependency):
                 pmkid_file,
                 Configuration.wordlist
             ]
+            command.extend(Hashcat.get_optimum_workload())
             if Hashcat.should_use_force():
                 command.append('--force')
             command.extend(additional_arg)

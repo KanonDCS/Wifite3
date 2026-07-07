@@ -85,6 +85,18 @@ class Airodump(Dependency):
 
         # Start the process
         self.pid = Process(command, devnull=True)
+
+        # Target-Locked Channel Hopping: Lock channel via iw/iwconfig to prevent interface drifting
+        if self.channel:
+            try:
+                # Try modern 'iw' interface first, fallback to 'iwconfig'
+                if Process.exists('iw'):
+                    Process.call(['iw', 'dev', self.interface, 'set', 'channel', str(self.channel)])
+                elif Process.exists('iwconfig'):
+                    Process.call(['iwconfig', self.interface, 'channel', str(self.channel)])
+            except Exception:
+                pass
+
         return self
 
 
