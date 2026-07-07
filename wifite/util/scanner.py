@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 from ..util.color import Color
+from ..util.scorer import score as vuln_score, badge as vuln_badge, sort_targets
 from ..tools.airodump import Airodump
 from ..util.input import raw_input, xrange
 from ..model.target import Target, WPSState
@@ -116,22 +114,24 @@ class Scanner(object):
             Color.p('\r')
             return
 
+        ranked = sort_targets(self.targets)
+
         if self.previous_target_count > 0:
             if Configuration.verbose <= 1:
-                if self.previous_target_count > len(self.targets) or \
+                if self.previous_target_count > len(ranked) or \
                    Scanner.get_terminal_height() < self.previous_target_count + 6:
                     from ..util.process import Process
                     Process.call('clear')
                 else:
                     Color.p(Scanner.UP_CHAR * (self.previous_target_count + 4))
 
-        self.previous_target_count = len(self.targets)
+        self.previous_target_count = len(ranked)
 
         show_bssids = Configuration.show_bssids
         if show_bssids:
-            widths = [3, 24, 17, 3, 4, 5, 4, 6, 3, 4]
+            widths = [3, 24, 17, 3, 4, 5, 4, 6, 3, 4, 12]
         else:
-            widths = [3, 24, 3, 4, 5, 4, 6, 3, 4]
+            widths = [3, 24, 3, 4, 5, 4, 6, 3, 4, 12]
 
         top_border = '┌' + '┬'.join('─' * (w + 2) for w in widths) + '┐'
         mid_border = '├' + '┼'.join('─' * (w + 2) for w in widths) + '┤'
@@ -148,7 +148,8 @@ class Scanner(object):
                 'WPS?'.center(4),
                 'CLIENT'.center(6),
                 'PMF'.center(3),
-                'SEC'.center(4)
+                'SEC'.center(4),
+                'RISK'.center(12),
             ]
         else:
             headers = [
@@ -160,7 +161,8 @@ class Scanner(object):
                 'WPS?'.center(4),
                 'CLIENT'.center(6),
                 'PMF'.center(3),
-                'SEC'.center(4)
+                'SEC'.center(4),
+                'RISK'.center(12),
             ]
 
         Color.clear_entire_line()
@@ -170,9 +172,7 @@ class Scanner(object):
         Color.clear_entire_line()
         Color.pl('   ' + mid_border)
 
-        from ..model.target import WPSState
-
-        for idx, target in enumerate(self.targets, start=1):
+        for idx, target in enumerate(ranked, start=1):
             Color.clear_entire_line()
             num_val = '{G}%s{W}' % '{:>3}'.format(idx)
 
@@ -185,10 +185,7 @@ class Scanner(object):
             decloaked_char = '*' if target.decloaked else ' '
             essid_text = essid_text[:-1] + decloaked_char
 
-            if target.essid_known:
-                essid_val = '{C}%s{W}' % essid_text
-            else:
-                essid_val = '{O}%s{W}' % essid_text
+            essid_val = '{C}%s{W}' % essid_text if target.essid_known else '{O}%s{W}' % essid_text
 
             ch_color = '{G}' if int(target.channel) <= 14 else '{C}'
             ch_val = '%s%s%s' % (ch_color, '{:>3}'.format(target.channel), '{W}')
@@ -208,10 +205,7 @@ class Scanner(object):
             else:
                 wps_val = '{O} n/a{W}'
 
-            if len(target.clients) > 0:
-                client_val = '{G}%s{W}' % '{:>6}'.format(len(target.clients))
-            else:
-                client_val = '      '
+            client_val = '{G}%s{W}' % '{:>6}'.format(len(target.clients)) if len(target.clients) > 0 else '      '
 
             if target.pmf_required:
                 pmf_val = '{R}REQ{W}'
@@ -220,16 +214,17 @@ class Scanner(object):
             else:
                 pmf_val = '{G} no{W}'
 
-            if target.wpa3:
-                sec_val = '{C}WPA3{W}'
-            else:
-                sec_val = '    '
+            sec_val = '{C}WPA3{W}' if target.wpa3 else '    '
+
+            pts = vuln_score(target)
+            risk_raw = vuln_badge(pts)
+            risk_val = risk_raw
 
             if show_bssids:
                 bssid_val = '{O}%s{W}' % '{:<17}'.format(target.bssid)
-                row_cells = [num_val, essid_val, bssid_val, ch_val, enc_val, pwr_val, wps_val, client_val, pmf_val, sec_val]
+                row_cells = [num_val, essid_val, bssid_val, ch_val, enc_val, pwr_val, wps_val, client_val, pmf_val, sec_val, risk_val]
             else:
-                row_cells = [num_val, essid_val, ch_val, enc_val, pwr_val, wps_val, client_val, pmf_val, sec_val]
+                row_cells = [num_val, essid_val, ch_val, enc_val, pwr_val, wps_val, client_val, pmf_val, sec_val, risk_val]
 
             Color.pl('   │ ' + ' │ '.join(row_cells) + ' │')
 

@@ -1,16 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-wifite/attack/wpa.py — V3
-WPA 4-way handshake capture and crack.
-
-V3 Changes:
-- PMF-aware deauth: if target.pmf is True, deauth is skipped (802.11w)
-- Scapy fallback validation added alongside tshark
-- Handshake cracked with hashcat -m 22000 (falls back to aircrack)
-- All existing capture logic preserved
-"""
-
 from ..model.attack import Attack
 from ..tools.aircrack import Aircrack
 from ..tools.airodump import Airodump
@@ -19,6 +6,7 @@ from ..config import Configuration
 from ..util.color import Color
 from ..util.process import Process
 from ..util.timer import Timer
+from ..util.spinner import Spinner
 from ..model.handshake import Handshake
 from ..model.wpa_result import CrackResultWPA
 
@@ -124,85 +112,65 @@ class AttackWPA(Attack):
                     Color.pl('\n{+} Using handshake from {C}%s{W}' % handshake.capfile)
                     return handshake
 
-            timeout_timer = Timer(Configuration.wpa_attack_timeout)
-            deauth_timer = Timer(Configuration.wpa_deauth_timeout)
-
-            # V3: Check PMF status to decide deauth strategy
+            timeout_timer  = Timer(Configuration.wpa_attack_timeout)
+            deauth_timer   = Timer(Configuration.wpa_deauth_timeout)
             target_has_pmf = getattr(self.target, 'pmf', False)
+            pmf_tag        = ' \033[33m[PMF]\033[0m' if target_has_pmf else ''
+            label          = airodump_target.essid or airodump_target.bssid
+
+            spin = Spinner('WPA capture  %s%s' % (label, pmf_tag))
+            spin.start()
 
             while handshake is None and not timeout_timer.ended():
                 step_timer = Timer(1)
-                Color.clear_entire_line()
 
-                # V3: Show PMF status in status line
-                pmf_str = ' {O}[PMF]{W}' if target_has_pmf else ''
-                Color.pattack('WPA',
-                        airodump_target,
-                        'Handshake capture',
-                        'Listening.%s (clients:{G}%d{W}, deauth:{O}%s{W}, timeout:{R}%s{W})' % (
-                            pmf_str, len(self.clients), deauth_timer, timeout_timer))
+                spin.set_suffix(
+                    'clients:\033[92m%d\033[0m  deauth:\033[93m%s\033[0m  timeout:\033[91m%s\033[0m' % (
+                        len(self.clients), deauth_timer, timeout_timer))
 
-                # Find .cap file
                 cap_files = airodump.find_files(endswith='.cap')
                 if len(cap_files) == 0:
                     time.sleep(step_timer.remaining())
                     continue
                 cap_file = cap_files[0]
 
-                # Copy .cap file to temp for consistent reads
                 temp_file = Configuration.temp('handshake.cap.bak')
                 copy(cap_file, temp_file)
 
-                # Check for handshake
-                bssid = airodump_target.bssid
-                essid = airodump_target.essid if airodump_target.essid_known else None
+                bssid    = airodump_target.bssid
+                essid    = airodump_target.essid if airodump_target.essid_known else None
                 handshake = Handshake(temp_file, bssid=bssid, essid=essid)
                 if handshake.has_handshake():
-                    Color.clear_entire_line()
-                    Color.pattack('WPA',
-                            airodump_target,
-                            'Handshake capture',
-                            '{G}Captured handshake{W}')
-                    Color.pl('')
+                    spin.stop(success=True, final_msg='Handshake captured  \033[92m%s\033[0m' % (essid or bssid))
                     break
 
                 handshake = None
                 os.remove(temp_file)
 
-                # Look for new clients
                 airodump_target = self.wait_for_target(airodump)
                 for client in airodump_target.clients:
                     if client.station not in self.clients:
-                        Color.clear_entire_line()
-                        Color.pattack('WPA',
-                                airodump_target,
-                                'Handshake capture',
-                                'Discovered new client: {G}%s{W}' % client.station)
-                        Color.pl('')
+                        spin.set_suffix('New client: \033[92m%s\033[0m' % client.station)
                         self.clients.append(client.station)
 
-                # V3: Only deauth if PMF is NOT active
                 if deauth_timer.ended():
                     if not target_has_pmf:
                         self.deauth(airodump_target)
                     else:
-                        Color.clear_entire_line()
-                        Color.pattack('WPA', airodump_target, 'Handshake capture',
-                                      '{O}PMF active — skipping deauth, waiting passively...{W}')
+                        spin.set_suffix('\033[33mPMF active — deauth skipped\033[0m')
                     deauth_timer = Timer(Configuration.wpa_deauth_timeout)
 
                 time.sleep(step_timer.remaining())
-                continue
 
-        if handshake is None:
-            Color.pl('\n{!} {O}WPA handshake capture {R}FAILED:{O} Timed out after %d seconds' % (Configuration.wpa_attack_timeout))
-            if target_has_pmf:
-                Color.pl('{!} {O}Target had PMF enabled. '
-                         'Consider using PMKID attack instead (it works with PMF).{W}')
-            return handshake
-        else:
-            self.save_handshake(handshake)
-            return handshake
+            if handshake is None:
+                spin.stop(success=False, final_msg='Handshake capture timed out after %ds' % Configuration.wpa_attack_timeout)
+                if target_has_pmf:
+                    Color.pl('{!} {O}PMF enabled — try PMKID attack instead{W}')
+                return None
+            else:
+                self.save_handshake(handshake)
+                return handshake
+
 
     def load_handshake(self, bssid, essid):
         if not os.path.exists(Configuration.wpa_handshake_dir):
