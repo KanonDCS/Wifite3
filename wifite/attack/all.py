@@ -1,62 +1,63 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-wifite/attack/all.py — V3
-Attack orchestration: determines which attacks to run per target.
-
-V3 attack priority:
-  WPA3 target:
-    1. AttackWPA3 (SAE capture)
-    2. AttackPMKID (fallback — PMKID works regardless of WPA version)
-
-  WPA2 target:
-    1. AttackWPS (Pixie-Dust, if WPS available)
-    2. AttackWPS (PIN, if WPS available)
-    3. AttackPMKID (no clients needed)
-    4. AttackWPA (4-way handshake; deauth skipped if PMF)
-
-  WEP target:
-    1. AttackWEP (unchanged)
-"""
-
-from .wep import AttackWEP
-from .wpa import AttackWPA
-from .wps import AttackWPS
+from .wep  import AttackWEP
+from .wpa  import AttackWPA
+from .wps  import AttackWPS
 from .pmkid import AttackPMKID
 from ..config import Configuration
 from ..util.color import Color
+from ..util.oui   import vendor_key, vendor_name
+from ..util.wordgen import write_targeted_wordlist
+from ..util.scorer  import score as vuln_score, label as vuln_label, badge as vuln_badge
+
+import os
 
 
 class AttackAll(object):
 
     @classmethod
-    def attack_multiple(cls, targets):
-        '''
-        Attacks all given targets until user interruption.
-        Returns: Number of targets that were attacked (int)
-        '''
-        if any(t.wps for t in targets) and not AttackWPS.can_attack_wps():
-            Color.pl('{!} {O}Note: WPS attacks are not possible because you do not have {C}reaver{O} nor {C}bully{W}')
+    def _pre_attack_briefing(cls, target, index, total):
+        bssid = target.bssid
+        essid = target.essid if target.essid_known else '(hidden)'
+        pts   = vuln_score(target)
+        badge = vuln_badge(pts)
 
-        attacked_targets = 0
+        vkey  = vendor_key(bssid)
+        vname = vendor_name(bssid)
+
+        Color.pl('\n{+} (%s%d{W}/{G}%d{W}) {W}%s {C}%s{W}' % (
+            '{G}', index, total, bssid, essid))
+        Color.pl('    \033[2mVendor:\033[0m \033[96m%-18s\033[0m  Risk: %s' % (vname, badge))
+
+        if getattr(target, 'wpa3', False):
+            Color.pl('    \033[96m[WPA3/SAE]\033[0m Protocol: SAE Dragonfly — active cracking vector')
+        if getattr(target, 'pmf', False):
+            level = 'REQUIRED' if getattr(target, 'pmf_required', False) else 'ENABLED'
+            Color.pl('    \033[33m[PMF 802.11w %s]\033[0m Deauth frames will be suppressed' % level)
+
+        targeted_wl = None
+        if 'WPA' in target.encryption and Configuration.wordlist:
+            targeted_wl, isp = write_targeted_wordlist(essid, bssid)
+            if targeted_wl:
+                Color.pl('    \033[92m[INTEL]\033[0m Targeted wordlist generated'
+                         ' (\033[93m%s\033[0m pattern detected)' % (isp or 'generic'))
+                Configuration._targeted_wordlist = targeted_wl
+            else:
+                Configuration._targeted_wordlist = None
+
+        return targeted_wl
+
+    @classmethod
+    def attack_multiple(cls, targets):
+        if any(t.wps for t in targets) and not AttackWPS.can_attack_wps():
+            Color.pl('{!} {O}WPS attacks unavailable — {C}reaver{O}/{C}bully{O} not found{W}')
+
+        attacked_targets  = 0
         targets_remaining = len(targets)
+
         for index, target in enumerate(targets, start=1):
-            attacked_targets += 1
+            attacked_targets  += 1
             targets_remaining -= 1
 
-            bssid = target.bssid
-            essid = target.essid if target.essid_known else '{O}ESSID unknown{W}'
-
-            Color.pl('\n{+} ({G}%d{W}/{G}%d{W})' % (index, len(targets)) +
-                     ' Starting attacks against {C}%s{W} ({C}%s{W})' % (bssid, essid))
-
-            # V3: Log WPA3/PMF status
-            if getattr(target, 'wpa3', False):
-                Color.pl('{!} {C}WPA3/SAE{W} network detected — using SAE capture first')
-            elif getattr(target, 'pmf', False):
-                pmf_level = 'required' if getattr(target, 'pmf_required', False) else 'enabled'
-                Color.pl('{!} {O}PMF (802.11w) is %s — deauth will be skipped{W}' % pmf_level)
-
+            cls._pre_attack_briefing(target, index, len(targets))
             should_continue = cls.attack_single(target, targets_remaining)
             if not should_continue:
                 break
@@ -65,32 +66,23 @@ class AttackAll(object):
 
     @classmethod
     def attack_single(cls, target, targets_remaining):
-        '''
-        Attacks a single target.
-        V3: WPA3 targets get AttackWPA3 first.
-        Returns: True if attacks should continue, False otherwise.
-        '''
         attacks = []
 
         if Configuration.use_eviltwin:
-            # TODO: EvilTwin attack
             pass
 
         elif 'WEP' in target.encryption:
             attacks.append(AttackWEP(target))
 
         elif 'WPA' in target.encryption:
-
-            # V3: WPA3/SAE targets
             if getattr(target, 'wpa3', False) and not Configuration.use_pmkid_only:
                 try:
                     from .wpa3 import AttackWPA3
                     attacks.append(AttackWPA3(target))
                 except ImportError:
-                    Color.pl('{!} {O}WPA3 attack module not available{W}')
+                    Color.pl('{!} {O}WPA3 attack module unavailable{W}')
 
             if not Configuration.use_pmkid_only:
-                # WPS attacks (skip if WPA3-only network)
                 if target.wps != False and AttackWPS.can_attack_wps():
                     if Configuration.wps_pixie:
                         attacks.append(AttackWPS(target, pixie_dust=True))
@@ -98,15 +90,12 @@ class AttackAll(object):
                         attacks.append(AttackWPS(target, pixie_dust=False))
 
             if not Configuration.wps_only:
-                # PMKID (works with and without clients; works even with PMF in some cases)
                 attacks.append(AttackPMKID(target))
-
-                # 4-way handshake (deauth skipped in AttackWPA if target.pmf is True)
                 if not Configuration.use_pmkid_only:
                     attacks.append(AttackWPA(target))
 
         if len(attacks) == 0:
-            Color.pl('{!} {R}Error: {O}Unable to attack: no attacks available')
+            Color.pl('{!} {R}Error: {O}No attacks available for this target{W}')
             return True
 
         while len(attacks) > 0:
@@ -128,10 +117,16 @@ class AttackAll(object):
                 else:
                     return False
 
+        targeted_wl = getattr(Configuration, '_targeted_wordlist', None)
+        if targeted_wl and os.path.exists(targeted_wl):
+            os.remove(targeted_wl)
+            Configuration._targeted_wordlist = None
+
         if attack.success:
             attack.crack_result.save()
 
         return True
+
 
 
     @classmethod
