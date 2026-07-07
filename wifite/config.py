@@ -96,6 +96,8 @@ class Configuration(object):
         cls.cracked_file = 'cracked.txt'
         cls.wordlist = None
         wordlists = [
+            './rockyou.txt',
+            './rockyou.txt.gz',
             './wordlist-top4800-probable.txt',
             '/usr/share/wordlists/rockyou.txt',
             '/usr/share/wordlists/rockyou.txt.gz',
