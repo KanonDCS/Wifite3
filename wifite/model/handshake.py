@@ -144,7 +144,7 @@ class Handshake(object):
             return [(self.bssid, None)]
         # Partial handshakes (at least 2) can still be useful for PMKID context
         if len(eapol_msgs) >= 2:
-            Color.pl('{!} {O}Scapy: partial handshake ({C}%d{O} EAPOL msgs — need 4){W}' % len(eapol_msgs))
+            pass
         return []
 
 
