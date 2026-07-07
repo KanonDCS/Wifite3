@@ -77,9 +77,10 @@ def label(pts):
 def badge(pts):
     lbl = label(pts)
     color = _LABEL_COLOR.get(lbl, '')
-    bar_len = pts // 10
-    bar = '█' * bar_len + '░' * (10 - bar_len)
-    return '%s[%s] %s%s' % (color, bar, lbl, _RESET)
+    bar_len = pts // 20
+    bar = '█' * bar_len + '░' * (5 - bar_len)
+    padded_lbl = '%-8s' % lbl
+    return '%s[%s] %s%s' % (color, bar, padded_lbl, _RESET)
 
 
 def sort_targets(targets):

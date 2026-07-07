@@ -129,9 +129,9 @@ class Scanner(object):
 
         show_bssids = Configuration.show_bssids
         if show_bssids:
-            widths = [3, 24, 17, 3, 4, 5, 4, 6, 3, 4, 12]
+            widths = [3, 24, 17, 3, 4, 5, 4, 6, 3, 4, 16]
         else:
-            widths = [3, 24, 3, 4, 5, 4, 6, 3, 4, 12]
+            widths = [3, 24, 3, 4, 5, 4, 6, 3, 4, 16]
 
         top_border = '┌' + '┬'.join('─' * (w + 2) for w in widths) + '┐'
         mid_border = '├' + '┼'.join('─' * (w + 2) for w in widths) + '┤'
@@ -149,7 +149,7 @@ class Scanner(object):
                 'CLIENT'.center(6),
                 'PMF'.center(3),
                 'SEC'.center(4),
-                'RISK'.center(12),
+                'RISK'.center(16),
             ]
         else:
             headers = [
@@ -162,7 +162,7 @@ class Scanner(object):
                 'CLIENT'.center(6),
                 'PMF'.center(3),
                 'SEC'.center(4),
-                'RISK'.center(12),
+                'RISK'.center(16),
             ]
 
         Color.clear_entire_line()
